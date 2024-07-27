@@ -1,0 +1,176 @@
+version: '3.7'
+
+services:
+  chirpstack-network-server:
+    image: chirpstack/chirpstack-network-server:3
+    networks:
+      - chirpstack-backend
+    configs:
+      - source: network-server.toml
+        target: /etc/chirpstack-network-server/chirpstack-network-server.toml
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+  
+  chirpstack:
+    image: chirpstack/chirpstack-application-server:3
+    networks:
+      - ntw-bridge
+      - chirpstack-frontend
+      - chirpstack-backend
+    ports:
+      - 30010:8080
+    configs:
+      - source: application-server.toml
+        target: /etc/chirpstack-application-server/chirpstack-application-server.toml
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+  
+  chirpstack-gateway-bridge:
+    image: chirpstack/chirpstack-gateway-bridge:3
+    networks:
+      - chirpstack-backend
+    ports:
+      - 1700:1700/udp
+    configs:
+      - source: gateway-bridge.toml
+        target: /etc/chirpstack-gateway-bridge/chirpstack-gateway-bridge.toml
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+  
+  chirpstack-geolocation-server:
+    image: chirpstack/chirpstack-geolocation-server:3
+    networks:
+      - chirpstack-backend
+    configs:
+      - source: geolocation-server.toml
+        target: /etc/chirpstack-geolocation-server/chirpstack-geolocation-server.toml
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+  
+  postgresql:
+    image: postgres:12-alpine
+    networks:
+      - chirpstack-backend
+      - thingsboard-backend
+    environment:
+      - POSTGRES_PASSWORD_FILE=/run/secrets/psql-passw
+    volumes:
+      - type: volume
+        source: postgres-data
+        target: /var/lib/postgresql/data
+      - type: bind
+        source: ./config/postgresql/initdb
+        target: /docker-entrypoint-initdb.d
+    secrets:
+      - psql-passw
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+  
+  redis:
+    image: redis:5-alpine
+    networks:
+      - chirpstack-backend
+    volumes:
+      - cs-redis-data:/data
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+
+  mosquitto:
+    image: eclipse-mosquitto:1.6
+    networks:
+      - chirpstack-backend
+    ports:
+      - 1883:1883
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+
+  thingsboard:
+    image: ivan28823/thingsboard:v3.2
+    environment:
+      - PG_HOST=postgresql
+      - PG_USER=thingsboard
+      - PG_PASS=thingsboard-passwd
+    ports:
+      - 30011:9090
+      - 1884:1883
+      - 5683:5683/udp
+    networks:
+      - ntw-bridge
+      - thingsboard-frontend
+      - thingsboard-backend
+    volumes:
+      - tb-data:/data
+    secrets:
+      - psql-passw
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+          
+volumes:
+  postgres-data:
+    external: true
+  cs-redis-data:
+    external: true
+  tb-data:
+    external: true
+
+networks:
+  ntw-bridge:
+  chirpstack-frontend:
+  chirpstack-backend:
+  thingsboard-frontend:
+  thingsboard-backend:
+
+configs:
+  network-server.toml:
+    file: ./config/chirpstack/network-server.toml
+  application-server.toml:
+    file: ./config/chirpstack/application-server.toml
+  geolocation-server.toml:
+    file: ./config/chirpstack/geolocation-server.toml
+  gateway-bridge.toml:
+    file: ./config/chirpstack/gateway-bridge.toml
+
+secrets:
+  psql-passw:
+    external: true
+    

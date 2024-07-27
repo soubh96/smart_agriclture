@@ -1,0 +1,101 @@
+version: "3"
+
+services:
+  chirpstack-network-server:
+    image: chirpstack/chirpstack-network-server:3
+    restart: unless-stopped
+    networks:
+      - chirpstack-backend
+    volumes:
+      - ./config/chirpstack/network-server.toml:/etc/chirpstack-network-server/chirpstack-network-server.toml
+
+  chirpstack:
+    image: chirpstack/chirpstack-application-server:3
+    restart: unless-stopped
+    networks:
+      - cs-tb-bridge-ntw
+      - chirpstack-frontend
+      - chirpstack-backend
+    ports:
+      - 8080:8080
+    volumes:
+      - ./config/chirpstack/application-server.toml:/etc/chirpstack-application-server/chirpstack-application-server.toml
+
+  chirpstack-gateway-bridge:
+    image: chirpstack/chirpstack-gateway-bridge:3
+    restart: unless-stopped
+    networks:
+      - chirpstack-backend
+    ports:
+      - 1700:1700/udp
+    volumes:
+      - ./config/chirpstack/gateway-bridge.toml:/etc/chirpstack-gateway-bridge/chirpstack-gateway-bridge.toml
+
+
+  redis:
+    image: redis:5-alpine
+    restart: unless-stopped
+    networks:
+      - chirpstack-backend
+    volumes:
+      - cs-redis-data:/data
+
+  mosquitto:
+    image: eclipse-mosquitto:1.6
+    restart: unless-stopped
+    networks:
+      - chirpstack-backend
+    ports:
+      - 1883:1883
+    volumes:
+      - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+  
+  thingsboard:
+    image: thingsboard/tb-postgres
+    restart: unless-stopped
+    environment:
+      TB_QUEUE_TYPE: in-memory
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/thingsboard    
+    
+    networks:
+      - cs-tb-bridge-ntw
+      - thingsboard-frontend
+      - thingsboard-backend
+    environment:
+      - PG_HOST=postgresql
+      - PG_USER=thingsboard
+      - PG_PASS=thingsboard-passwd
+    ports:
+      - 30010:9090
+      - 1884:1883
+      - 7070:7070
+      - 5683-5688:5683-5688/udp
+    volumes:
+      - /data/chirpstack-thingsboard/.thingsboard-data:/data
+      - /data/chirpstack-thingsboard/.thingsboard-logs:/var/log/thingsboard
+  postgresql:
+    image: postgres:12-alpine
+    restart: unless-stopped
+    networks:
+      - chirpstack-backend
+      - thingsboard-backend
+    environment:
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - ./config/postgresql/initdb:/docker-entrypoint-initdb.d
+      - postgres-data:/var/lib/postgresql/data
+   
+volumes:
+  postgres-data:
+  cs-redis-data:
+
+networks:
+  cs-tb-bridge-ntw:
+  chirpstack-frontend:
+  chirpstack-backend:
+  thingsboard-frontend:
+  thingsboard-backend:
+ 

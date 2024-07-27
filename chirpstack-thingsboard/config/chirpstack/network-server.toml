@@ -1,0 +1,44 @@
+## See https://www.chirpstack.io/network-server/install/config/ for a full
+# configuration example and documentation.
+#
+# This file is for the EU868 band. See the examples/ folder for more
+# configuration examples.
+
+[general]
+# debug=5, info=4, warning=3, error=2, fatal=1, panic=0
+log_level=4
+
+[postgresql]
+dsn="postgres://chirpstack_ns:dbpassword@postgresql/chirpstack_ns?sslmode=disable"
+[redis]
+url="redis://redis:6379"
+
+[network_server]
+net_id="010203"
+
+[network_server.band]
+name="IN_865_867"
+
+# Class B settings
+[network_server.network_settings.class_b]
+    # Ping-slot data-rate.
+ping_slot_dr=0
+
+    # Ping-slot frequency (Hz)
+    #
+    # Set this to 0 to use the default frequency plan for the configured region
+    # (which could be frequency hopping).
+ping_slot_frequency=0
+
+
+
+[network_server.gateway.backend.mqtt]
+server="tcp://mosquitto:1883"
+#server="tcp://localhost:1883"
+
+[join_server.default]
+server="http://chirpstack:8003"
+
+#[geolocation_server]
+#server="chirpstack-geolocation-server:8005" 
+
